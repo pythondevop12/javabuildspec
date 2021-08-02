@@ -1,0 +1,53 @@
+version: 0.2
+
+
+phases:
+
+  install:
+    #If you use the Ubuntu standard image 2.0 or later, you must specify runtime-versions.
+    #If you specify runtime-versions and use an image other than Ubuntu standard image 2.0, the build fails.
+    runtime-versions:
+       java: corretto8
+       
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws --version
+      - mvn test
+      - aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 788989025800.dkr.ecr.ap-south-1.amazonaws.com
+      - REPOSITORY_URI=788989025800.dkr.ecr.ap-south-1.amazonaws.com/firstrepo
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=build-$(echo $CODEBUILD_BUILD_ID | awk -F":" '{print $2}')
+  build:
+    commands:
+    
+        - echo Build started on `date`
+        - echo Building the Docker image...
+        - mvn package
+        - mvn -s settings.xml -f pom.xml compile
+        - mvn -s settings.xml -f pom.xml package
+        - docker build -t $REPOSITORY_URI:latest .
+        - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
+        - docker build -t $REPOSITORY_URI:myrepo .
+        - apt-get install jq -
+        - ContainerName="todo"
+        - ImageURI=$(cat imagedefinitions.json | jq -r '.ImageURI')
+        - printf '[{"name":"CONTAINER_NAME","imageUri":"IMAGE_URI"}]' > imagedefinitions.json
+        - sed -i -e "s|CONTAINER_NAME|$ContainerName|g" imagedefinitions.json
+        - sed -i -e "s|IMAGE_URI|$ImageURI|g" imagedefinitions.json
+        - cat imagedefinitions.json
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - mvn package
+      - mv target/my-service-0.0.1-SNAPSHOT.war my-service-0.0.1-SNAPSHOT.war
+      - echo Pushing the Docker images...
+      - docker push $REPOSITORY_URI:latest
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - echo Writing image definitions file...
+      - printf '[{"name":"djangoapp","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+      - cat imagedefinitions.json
+artifacts:
+    files:
+        - target/my-app-1.0-SNAPSHOT.jar
+        - appspec.yml
