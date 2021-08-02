@@ -4,8 +4,6 @@ version: 0.2
 phases:
 
   install:
-    #If you use the Ubuntu standard image 2.0 or later, you must specify runtime-versions.
-    #If you specify runtime-versions and use an image other than Ubuntu standard image 2.0, the build fails.
     runtime-versions:
        java: corretto8
        
@@ -15,7 +13,7 @@ phases:
       - aws --version
       - mvn test
       - aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 788989025800.dkr.ecr.ap-south-1.amazonaws.com
-      - REPOSITORY_URI=788989025800.dkr.ecr.ap-south-1.amazonaws.com/firstrepo
+      - REPOSITORY_URI=788989025800.dkr.ecr.ap-south-1.amazonaws.com/java
       - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
       - IMAGE_TAG=build-$(echo $CODEBUILD_BUILD_ID | awk -F":" '{print $2}')
   build:
